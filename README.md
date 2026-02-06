@@ -1,3 +1,9 @@
+## Notebook
+
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](
+https://colab.research.google.com/github/advanced-computing/sparkly-pickle/blob/main/notebooks/analysis.ipynb
+)
+
 # Project 1 – Part 1: Proposal
 
 **Group Name:** sparkly-pickle  
