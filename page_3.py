@@ -8,6 +8,7 @@ st.title("Motor Vehicle Collisions - Merged Dataset (2022 Only)")
 # 1️⃣ Load Person Data (2022)
 # =====================================================
 
+
 @st.cache_data
 def load_person_2022():
     base_url = "https://data.cityofnewyork.us/resource/f55k-p6yu.json"
@@ -19,7 +20,7 @@ def load_person_2022():
         query_params = {
             "$where": "crash_date between '2022-01-01T00:00:00' and '2022-12-31T23:59:59'",
             "$limit": limit,
-            "$offset": offset
+            "$offset": offset,
         }
 
         url = f"{base_url}?{urlencode(query_params)}"
@@ -38,6 +39,7 @@ def load_person_2022():
 # 2️⃣ Load Crash Data (2022)
 # =====================================================
 
+
 @st.cache_data
 def load_crash_2022():
     base_url = "https://data.cityofnewyork.us/resource/h9gi-nx95.json"
@@ -49,7 +51,7 @@ def load_crash_2022():
         query_params = {
             "$where": "crash_date between '2022-01-01T00:00:00' and '2022-12-31T23:59:59'",
             "$limit": limit,
-            "$offset": offset
+            "$offset": offset,
         }
 
         url = f"{base_url}?{urlencode(query_params)}"
@@ -79,12 +81,7 @@ st.write("Crash rows:", crash_df.shape[0])
 # 4️⃣ Merge on collision_id
 # =====================================================
 
-merged_df = pd.merge(
-    person_df,
-    crash_df,
-    on="collision_id",
-    how="inner"
-)
+merged_df = pd.merge(person_df, crash_df, on="collision_id", how="inner")
 
 st.write("Merged rows:", merged_df.shape[0])
 st.write("Merged columns:", merged_df.shape[1])
