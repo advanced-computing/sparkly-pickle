@@ -26,9 +26,9 @@ st.divider()
 # ── Stat cards — white on dark ────────────────────────────────────────────────
 c1, c2, c3 = st.columns(3)
 for col, num, label, sub in [
-    (c1, "2026", "Data Year",        "Live-refreshed every hour from NYC Open Data"),
-    (c2, "2",    "Datasets Merged",  "Person-level and crash-level records combined"),
-    (c3, "5",    "NYC Boroughs",     "Geographic breakdown across all five boroughs"),
+    (c1, "2026", "Data Year", "Live-refreshed every hour from NYC Open Data"),
+    (c2, "2", "Datasets Merged", "Person-level and crash-level records combined"),
+    (c3, "5", "NYC Boroughs", "Geographic breakdown across all five boroughs"),
 ]:
     with col:
         st.markdown(
@@ -56,18 +56,36 @@ st.markdown(
 )
 
 topics = [
-    ("👤", "Who gets hurt",
-     "Injury and fatality outcomes across pedestrians, cyclists, drivers, and occupants."),
-    ("🕐", "When crashes happen",
-     "Hour-by-day heatmaps revealing commuter peaks, late-night risk, and weekly rhythms."),
-    ("🗺️", "Where risk concentrates",
-     "Borough-level crash counts exposing geographic inequality in traffic safety."),
-    ("⚠️", "Why crashes occur",
-     "Top contributing factors recorded by officers at the scene."),
-    ("📉", "Long-term fatality trends",
-     "Monthly tracking of pedestrian, cyclist, and motorist fatalities for Vision Zero."),
-    ("🛡️", "Safety equipment impact",
-     "How seatbelts and airbags affect injury outcomes for drivers and occupants."),
+    (
+        "👤",
+        "Who gets hurt",
+        "Injury and fatality outcomes across pedestrians, cyclists, drivers, and occupants.",
+    ),
+    (
+        "🕐",
+        "When crashes happen",
+        "Hour-by-day heatmaps revealing commuter peaks, late-night risk, and weekly rhythms.",
+    ),
+    (
+        "🗺️",
+        "Where risk concentrates",
+        "Borough-level crash counts exposing geographic inequality in traffic safety.",
+    ),
+    (
+        "⚠️",
+        "Why crashes occur",
+        "Top contributing factors recorded by officers at the scene.",
+    ),
+    (
+        "📉",
+        "Long-term fatality trends",
+        "Monthly tracking of pedestrian, cyclist, and motorist fatalities for Vision Zero.",
+    ),
+    (
+        "🛡️",
+        "Safety equipment impact",
+        "How seatbelts and airbags affect injury outcomes for drivers and occupants.",
+    ),
 ]
 
 row1 = st.columns(3)
@@ -110,4 +128,6 @@ st.markdown(
 )
 
 st.markdown("<br>", unsafe_allow_html=True)
-st.caption("Source: NYC Open Data — Motor Vehicle Collisions (Person & Crash) · Updated hourly via BigQuery")
+st.caption(
+    "Source: NYC Open Data — Motor Vehicle Collisions (Person & Crash) · Updated hourly via BigQuery"
+)

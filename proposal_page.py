@@ -1,6 +1,8 @@
 import streamlit as st
 
-st.markdown('<span class="page-label">Project 1 · Part 1</span>', unsafe_allow_html=True)
+st.markdown(
+    '<span class="page-label">Project 1 · Part 1</span>', unsafe_allow_html=True
+)
 st.markdown(
     "<h1 style='font-family:Lora,serif;font-weight:400;font-size:2.2rem;"
     "color:#b45309;margin-bottom:0.3rem;'>Research Proposal</h1>",
@@ -21,17 +23,21 @@ st.markdown(
 )
 
 for label, name, desc in [
-    ("Primary Dataset",
-     "Motor Vehicle Collisions – Person Data",
-     "This dataset records individuals involved in New York City police-reported motor vehicle "
-     "collisions. Each row represents one person involved in a crash (e.g., driver, passenger, "
-     "pedestrian, or bicyclist). The dataset includes information on injury severity and road "
-     "user type. The data is available starting from 2016, when NYC transitioned to an "
-     "electronic crash reporting system."),
-    ("Secondary Dataset (merged)",
-     "Motor Vehicle Collisions – Crashes",
-     "Crash-level records including borough, coordinates, and contributing factors. "
-     "Merged with the Person dataset to enable borough-level and GIS-based analysis."),
+    (
+        "Primary Dataset",
+        "Motor Vehicle Collisions – Person Data",
+        "This dataset records individuals involved in New York City police-reported motor vehicle "
+        "collisions. Each row represents one person involved in a crash (e.g., driver, passenger, "
+        "pedestrian, or bicyclist). The dataset includes information on injury severity and road "
+        "user type. The data is available starting from 2016, when NYC transitioned to an "
+        "electronic crash reporting system.",
+    ),
+    (
+        "Secondary Dataset (merged)",
+        "Motor Vehicle Collisions – Crashes",
+        "Crash-level records including borough, coordinates, and contributing factors. "
+        "Merged with the Person dataset to enable borough-level and GIS-based analysis.",
+    ),
 ]:
     st.markdown(
         f"""
@@ -55,17 +61,26 @@ st.markdown(
 )
 
 for num, title, body in [
-    ("1.", "Road User Outcomes",
-     "How do injury and fatality outcomes differ across types of road users (pedestrians, cyclists, "
-     "and motor vehicle occupants) in New York City since 2025?"),
-    ("2.", "Borough Geography",
-     "Are there differences in the distribution of traffic-related injuries and fatalities across "
-     "NYC boroughs since 2025? This question requires merging the Person dataset with the Motor "
-     "Vehicle Collisions – Crashes dataset, which contains detailed location information, enabling "
-     "borough-level and GIS-based analysis."),
-    ("3.", "Temporal Patterns",
-     "Do traffic-related injuries and fatalities exhibit temporal patterns over time (e.g., monthly "
-     "trends) in New York City since 2025?"),
+    (
+        "1.",
+        "Road User Outcomes",
+        "How do injury and fatality outcomes differ across types of road users (pedestrians, cyclists, "
+        "and motor vehicle occupants) in New York City since 2025?",
+    ),
+    (
+        "2.",
+        "Borough Geography",
+        "Are there differences in the distribution of traffic-related injuries and fatalities across "
+        "NYC boroughs since 2025? This question requires merging the Person dataset with the Motor "
+        "Vehicle Collisions – Crashes dataset, which contains detailed location information, enabling "
+        "borough-level and GIS-based analysis.",
+    ),
+    (
+        "3.",
+        "Temporal Patterns",
+        "Do traffic-related injuries and fatalities exhibit temporal patterns over time (e.g., monthly "
+        "trends) in New York City since 2025?",
+    ),
 ]:
     st.markdown(
         f"""
@@ -107,16 +122,25 @@ st.markdown(
 )
 
 c1, c2 = st.columns(2)
-for col, (label, vtype, desc) in zip([c1, c2], [
-    ("Visualization 1", "Stacked bar chart",
-     "A stacked bar chart comparing counts of injured versus killed individuals by road user type "
-     "(pedestrian, cyclist, motor vehicle occupant). The visualization highlights differences in "
-     "both total counts and outcome composition for each group since 2025."),
-    ("Visualization 2 (Planned)", "Faceted monthly time-series (line chart) by borough",
-     "This visualization will display monthly counts of injuries and fatalities across NYC boroughs "
-     "since 2025 after merging the Person and Crashes datasets. The goal is to identify temporal "
-     "patterns, seasonal effects, spikes, and borough-level differences."),
-]):
+for col, (label, vtype, desc) in zip(
+    [c1, c2],
+    [
+        (
+            "Visualization 1",
+            "Stacked bar chart",
+            "A stacked bar chart comparing counts of injured versus killed individuals by road user type "
+            "(pedestrian, cyclist, motor vehicle occupant). The visualization highlights differences in "
+            "both total counts and outcome composition for each group since 2025.",
+        ),
+        (
+            "Visualization 2 (Planned)",
+            "Faceted monthly time-series (line chart) by borough",
+            "This visualization will display monthly counts of injuries and fatalities across NYC boroughs "
+            "since 2025 after merging the Person and Crashes datasets. The goal is to identify temporal "
+            "patterns, seasonal effects, spikes, and borough-level differences.",
+        ),
+    ],
+):
     with col:
         st.markdown(
             f"""

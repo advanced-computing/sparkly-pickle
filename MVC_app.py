@@ -112,10 +112,10 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-main_page = st.Page("main_page.py",     title="Main Page",           icon="🎈")
-proposal  = st.Page("proposal_page.py", title="Research Proposal",   icon="📋")
-page_2    = st.Page("page_2.py",        title="Page 2",              icon="❄️")
-page_3    = st.Page("page_3.py",        title="Page 3",              icon="🎉")
+main_page = st.Page("main_page.py", title="Main Page", icon="🎈")
+proposal = st.Page("proposal_page.py", title="Research Proposal", icon="📋")
+page_2 = st.Page("page_2.py", title="Page 2", icon="❄️")
+page_3 = st.Page("page_3.py", title="Page 3", icon="🎉")
 
 pg = st.navigation([main_page, proposal, page_2, page_3])
 pg.run()
