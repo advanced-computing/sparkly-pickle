@@ -1,4 +1,5 @@
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 import altair as alt
 import pandas as pd
@@ -10,10 +11,11 @@ start_time = time.time()
 
 PROJECT_ID = "sipa-adv-c-sparkly-pickle"
 
+
 # ── Altair theme ──────────────────────────────────────────────────────────────
-alt.themes.register(
-    "app_dark",
-    lambda: {
+@alt.theme.register("app_dark", enable=True)
+def app_dark():
+    return {
         "config": {
             "background": "#1a1c27",
             "view": {"stroke": "transparent"},
@@ -42,9 +44,8 @@ alt.themes.register(
                 "fontWeight": 500,
             },
         }
-    },
-)
-alt.themes.enable("app_dark")
+    }
+
 
 # ── Page header ───────────────────────────────────────────────────────────────
 st.markdown(
@@ -65,6 +66,7 @@ st.write(
 
 
 # ── BigQuery client ───────────────────────────────────────────────────────────
+@st.cache_resource
 def get_bigquery_client():
     credentials = service_account.Credentials.from_service_account_info(
         st.secrets["gcp_service_account"]
@@ -72,10 +74,9 @@ def get_bigquery_client():
     return bigquery.Client(credentials=credentials, project=PROJECT_ID)
 
 
-# ── Queries (all original, unchanged) ────────────────────────────────────────
+# ── Individual query functions (each cached independently) ────────────────────
 @st.cache_data(ttl=3600)
 def load_kpi_metrics():
-    client = get_bigquery_client()
     query = """
     SELECT
         COUNT(DISTINCT collision_id)                                      AS total_crashes,
@@ -88,12 +89,16 @@ def load_kpi_metrics():
     FROM `sipa-adv-c-sparkly-pickle.nyc_data.motor_vehicle_collisions_person`
     WHERE crash_date IS NOT NULL
     """
-    return client.query(query).to_dataframe(create_bqstorage_client=False).iloc[0]
+    return (
+        get_bigquery_client()
+        .query(query)
+        .to_dataframe(create_bqstorage_client=False)
+        .iloc[0]
+    )
 
 
 @st.cache_data(ttl=3600)
 def load_weekday_person_type():
-    client = get_bigquery_client()
     query = """
     SELECT
         FORMAT_DATE('%A', DATE(crash_date)) AS weekday,
@@ -110,8 +115,8 @@ def load_weekday_person_type():
       AND person_type IS NOT NULL
     GROUP BY weekday, person_type
     """
-    df = client.query(query).to_dataframe(create_bqstorage_client=False)
-    weekday_order = [
+    df = get_bigquery_client().query(query).to_dataframe(create_bqstorage_client=False)
+    order = [
         "Monday",
         "Tuesday",
         "Wednesday",
@@ -120,15 +125,12 @@ def load_weekday_person_type():
         "Saturday",
         "Sunday",
     ]
-    df["weekday"] = pd.Categorical(
-        df["weekday"], categories=weekday_order, ordered=True
-    )
+    df["weekday"] = pd.Categorical(df["weekday"], categories=order, ordered=True)
     return df.sort_values("weekday")
 
 
 @st.cache_data(ttl=3600)
 def load_hour_weekday_heatmap():
-    client = get_bigquery_client()
     query = """
     SELECT
         FORMAT_DATE('%A', DATE(crash_date)) AS weekday,
@@ -138,8 +140,8 @@ def load_hour_weekday_heatmap():
     WHERE crash_date IS NOT NULL
     GROUP BY weekday, hour
     """
-    df = client.query(query).to_dataframe(create_bqstorage_client=False)
-    weekday_order = [
+    df = get_bigquery_client().query(query).to_dataframe(create_bqstorage_client=False)
+    order = [
         "Monday",
         "Tuesday",
         "Wednesday",
@@ -148,15 +150,12 @@ def load_hour_weekday_heatmap():
         "Saturday",
         "Sunday",
     ]
-    df["weekday"] = pd.Categorical(
-        df["weekday"], categories=weekday_order, ordered=True
-    )
+    df["weekday"] = pd.Categorical(df["weekday"], categories=order, ordered=True)
     return df
 
 
 @st.cache_data(ttl=3600)
 def load_safety_equipment():
-    client = get_bigquery_client()
     query = """
     SELECT
         CASE
@@ -186,15 +185,23 @@ def load_safety_equipment():
       AND person_injury IS NOT NULL
     GROUP BY equipment, outcome
     """
-    return client.query(query).to_dataframe(create_bqstorage_client=False)
+    return (
+        get_bigquery_client().query(query).to_dataframe(create_bqstorage_client=False)
+    )
 
 
-# ── Load ──────────────────────────────────────────────────────────────────────
+# ── Parallel loading ──────────────────────────────────────────────────────────
 with st.spinner("Loading data from BigQuery..."):
-    kpi = load_kpi_metrics()
-    weekday_df = load_weekday_person_type()
-    heatmap_df = load_hour_weekday_heatmap()
-    safety_df = load_safety_equipment()
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        f_kpi = pool.submit(load_kpi_metrics)
+        f_weekday = pool.submit(load_weekday_person_type)
+        f_heatmap = pool.submit(load_hour_weekday_heatmap)
+        f_safety = pool.submit(load_safety_equipment)
+
+    kpi = f_kpi.result()
+    weekday_df = f_weekday.result()
+    heatmap_df = f_heatmap.result()
+    safety_df = f_safety.result()
 
 if weekday_df.empty:
     st.warning("No data available.")
@@ -213,7 +220,7 @@ col4.metric("Fatality rate", f"{kpi['fatality_rate']:.2f}%")
 
 st.markdown("---")
 
-# ── Chart 1: Who gets hurt and when (original stacked bar) ───────────────────
+# ── Chart 1: Stacked bar ──────────────────────────────────────────────────────
 st.markdown(
     "<h3 style='font-family:Lora,serif;font-weight:500;color:#b45309;'>Who gets hurt, and when?</h3>",
     unsafe_allow_html=True,
@@ -286,7 +293,7 @@ st.markdown(
 
 st.markdown("---")
 
-# ── Chart 2: Hour × day heatmap (original) ────────────────────────────────────
+# ── Chart 2: Heatmap ──────────────────────────────────────────────────────────
 st.markdown(
     "<h3 style='font-family:Lora,serif;font-weight:500;color:#b45309;'>When do crashes happen? Hour × day heatmap</h3>",
     unsafe_allow_html=True,
@@ -334,8 +341,6 @@ hour_label_order = [
     "11p",
 ]
 
-brush = alt.selection_interval(encodings=["x"])
-
 heatmap = (
     alt.Chart(heatmap_df)
     .mark_rect()
@@ -358,7 +363,7 @@ heatmap = (
             alt.Tooltip("crashes:Q", title="Crashes", format=","),
         ],
     )
-    .add_params(brush)
+    .add_params(alt.selection_interval(encodings=["x"]))
     .properties(height=220)
 )
 
@@ -378,7 +383,7 @@ st.markdown(
 
 st.markdown("---")
 
-# ── Chart 3: Safety equipment (original) ──────────────────────────────────────
+# ── Chart 3: Safety equipment ─────────────────────────────────────────────────
 st.markdown(
     "<h3 style='font-family:Lora,serif;font-weight:500;color:#b45309;'>Does safety equipment make a difference?</h3>",
     unsafe_allow_html=True,
@@ -445,7 +450,7 @@ st.markdown(
 
 st.markdown("---")
 
-# ── Download (original) ───────────────────────────────────────────────────────
+# ── Download ──────────────────────────────────────────────────────────────────
 with st.expander("Download underlying data"):
     st.download_button(
         label="Download weekday x person type (CSV)",

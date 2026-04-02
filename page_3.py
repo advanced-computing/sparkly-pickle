@@ -1,5 +1,5 @@
 import time
-
+from concurrent.futures import ThreadPoolExecutor
 import altair as alt
 import pandas as pd
 import streamlit as st
@@ -10,10 +10,11 @@ start_time = time.time()
 
 PROJECT_ID = "sipa-adv-c-sparkly-pickle"
 
+
 # ── Altair theme ──────────────────────────────────────────────────────────────
-alt.themes.register(
-    "app_dark",
-    lambda: {
+@alt.theme.register("app_dark", enable=True)
+def app_dark():
+    return {
         "config": {
             "background": "#1a1c27",
             "view": {"stroke": "transparent"},
@@ -42,9 +43,8 @@ alt.themes.register(
                 "fontWeight": 500,
             },
         }
-    },
-)
-alt.themes.enable("app_dark")
+    }
+
 
 # ── Page header ───────────────────────────────────────────────────────────────
 st.markdown(
@@ -65,6 +65,7 @@ st.write(
 
 
 # ── BigQuery client ───────────────────────────────────────────────────────────
+@st.cache_resource
 def get_bigquery_client():
     credentials = service_account.Credentials.from_service_account_info(
         st.secrets["gcp_service_account"]
@@ -72,33 +73,34 @@ def get_bigquery_client():
     return bigquery.Client(credentials=credentials, project=PROJECT_ID)
 
 
-# ── Original queries (unchanged) ──────────────────────────────────────────────
+# ── Individual cached query functions ────────────────────────────────────────
 @st.cache_data(ttl=3600)
 def load_daily_counts():
-    client = get_bigquery_client()
     query = """
     SELECT date, crashes
     FROM `sipa-adv-c-sparkly-pickle.nyc_data.daily_crash_counts_2026`
     ORDER BY date
     """
-    return client.query(query).to_dataframe(create_bqstorage_client=False)
+    return (
+        get_bigquery_client().query(query).to_dataframe(create_bqstorage_client=False)
+    )
 
 
 @st.cache_data(ttl=3600)
 def load_borough_counts():
-    client = get_bigquery_client()
     query = """
     SELECT borough, crashes
     FROM `sipa-adv-c-sparkly-pickle.nyc_data.borough_crash_counts_2026`
+    WHERE borough IS NOT NULL AND TRIM(borough) != ''
     ORDER BY crashes DESC
     """
-    return client.query(query).to_dataframe(create_bqstorage_client=False)
+    return (
+        get_bigquery_client().query(query).to_dataframe(create_bqstorage_client=False)
+    )
 
 
-# ── New queries ───────────────────────────────────────────────────────────────
 @st.cache_data(ttl=3600)
 def load_contributing_factors():
-    client = get_bigquery_client()
     query = """
     SELECT
         contributing_factor_vehicle_1 AS factor,
@@ -111,12 +113,13 @@ def load_contributing_factors():
     ORDER BY crashes DESC
     LIMIT 10
     """
-    return client.query(query).to_dataframe(create_bqstorage_client=False)
+    return (
+        get_bigquery_client().query(query).to_dataframe(create_bqstorage_client=False)
+    )
 
 
 @st.cache_data(ttl=3600)
 def load_victim_trends():
-    client = get_bigquery_client()
     query = """
     SELECT
         DATE_TRUNC(crash_date, MONTH)          AS month,
@@ -128,15 +131,23 @@ def load_victim_trends():
     GROUP BY month
     ORDER BY month
     """
-    return client.query(query).to_dataframe(create_bqstorage_client=False)
+    return (
+        get_bigquery_client().query(query).to_dataframe(create_bqstorage_client=False)
+    )
 
 
-# ── Load all ──────────────────────────────────────────────────────────────────
+# ── Parallel loading ──────────────────────────────────────────────────────────
 with st.spinner("Loading data from BigQuery..."):
-    daily_counts = load_daily_counts()
-    borough_counts = load_borough_counts()
-    factors_df = load_contributing_factors()
-    victim_df = load_victim_trends()
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        f_daily = pool.submit(load_daily_counts)
+        f_borough = pool.submit(load_borough_counts)
+        f_factors = pool.submit(load_contributing_factors)
+        f_victim = pool.submit(load_victim_trends)
+
+    daily_counts = f_daily.result()
+    borough_counts = f_borough.result()
+    factors_df = f_factors.result()
+    victim_df = f_victim.result()
 
 if daily_counts.empty:
     st.warning("No data available.")
@@ -145,6 +156,9 @@ if daily_counts.empty:
 # ── KPI row ───────────────────────────────────────────────────────────────────
 daily_counts["date"] = pd.to_datetime(daily_counts["date"])
 daily_counts = daily_counts.sort_values("date")
+daily_counts["rolling_7"] = (
+    daily_counts["crashes"].rolling(7, min_periods=1).mean().round(1)
+)
 
 total = int(daily_counts["crashes"].sum())
 peak = int(daily_counts["crashes"].max())
@@ -163,7 +177,7 @@ c4.metric("Highest-Risk Borough", top_b)
 
 st.markdown("---")
 
-# ── Chart 1: Daily trend (original) + 7-day rolling avg (new) ────────────────
+# ── Chart 1: Daily trend + rolling avg ───────────────────────────────────────
 st.markdown(
     "<h3 style='font-family:Lora,serif;font-weight:500;color:#b45309;'>Daily Trend Analysis</h3>",
     unsafe_allow_html=True,
@@ -174,10 +188,6 @@ st.write(
     It helps identify fluctuations and short-term patterns in collision activity.
     The orange line shows the 7-day rolling average to smooth out noise.
     """
-)
-
-daily_counts["rolling_7"] = (
-    daily_counts["crashes"].rolling(7, min_periods=1).mean().round(1)
 )
 
 raw_line = (
@@ -225,7 +235,7 @@ st.markdown(
 
 st.markdown("---")
 
-# ── Chart 2: Borough bar (original) + click interaction (new) ────────────────
+# ── Chart 2: Borough bar ──────────────────────────────────────────────────────
 st.markdown(
     "<h3 style='font-family:Lora,serif;font-weight:500;color:#b45309;'>Borough Analysis</h3>",
     unsafe_allow_html=True,
@@ -274,7 +284,7 @@ st.markdown(
 
 st.markdown("---")
 
-# ── Chart 3: Top contributing factors (new) ───────────────────────────────────
+# ── Chart 3: Contributing factors ────────────────────────────────────────────
 st.markdown(
     "<h3 style='font-family:Lora,serif;font-weight:500;color:#b45309;'>Top 10 Contributing Factors</h3>",
     unsafe_allow_html=True,
@@ -315,7 +325,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# ── Chart 4: Monthly fatalities by victim type (new, Research Q3) ─────────────
+# ── Chart 4: Monthly fatalities ───────────────────────────────────────────────
 if not victim_df.empty and victim_df["month"].notna().any():
     st.markdown("---")
     st.markdown(
@@ -327,7 +337,7 @@ if not victim_df.empty and victim_df["month"].notna().any():
         """
         Tracking pedestrian, cyclist, and motorist fatalities month by month.
         This directly addresses Research Question 3 — temporal patterns — and helps assess
-        whether Vision Zero initiatives are reducing risk over time for the most vulnerable road users.
+        whether Vision Zero initiatives are reducing risk over time.
         """
     )
 
