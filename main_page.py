@@ -1,67 +1,113 @@
 import streamlit as st
 
-st.set_page_config(page_title="NYC Open Data App", layout="wide")
-
-st.title("NYC Motor Vehicle Collisions")
-
-st.subheader("🏠 Team Members")
-st.write("Yiran Ge, Yizi Qu")
-
-st.markdown("---")
-
-st.header("Project Overview")
-st.write(
+# ── Hero ─────────────────────────────────────────────────────────────────────
+st.markdown(
     """
-    This project explores traffic collision patterns in New York City using NYC Open Data.
-    We use live 2026 data to build an interactive Streamlit app that helps users explore
-    crash patterns and better understand public safety trends.
-    """
+    <div style="padding:3rem 0 2rem 0;">
+        <div style="font-size:0.75rem;text-transform:uppercase;letter-spacing:0.15em;
+                    color:#b45309;font-weight:600;margin-bottom:1rem;">
+            NYC Open Data · 2026 Live
+        </div>
+        <h1 style="font-family:'Lora',serif;font-size:3.2rem;font-weight:400;
+                   color:#b45309;line-height:1.15;margin:0 0 1.2rem 0;">
+            Motor Vehicle<br>Collisions in New York City
+        </h1>
+        <p style="color:#9b9488;font-size:1.1rem;max-width:560px;margin:0;line-height:1.8;">
+            An interactive look at when, where, and how crashes happen across the five boroughs —
+            powered by live BigQuery data updated hourly.
+        </p>
+    </div>
+    """,
+    unsafe_allow_html=True,
 )
 
-st.header("Research Question")
-st.write(
-    """
-    How can NYC motor vehicle collision data be used to reveal meaningful patterns in crash timing,
-    frequency, and location through interactive visualization?
-    """
+st.divider()
+
+# ── Stat cards — white on dark ────────────────────────────────────────────────
+c1, c2, c3 = st.columns(3)
+for col, num, label, sub in [
+    (c1, "2026", "Data Year",        "Live-refreshed every hour from NYC Open Data"),
+    (c2, "2",    "Datasets Merged",  "Person-level and crash-level records combined"),
+    (c3, "5",    "NYC Boroughs",     "Geographic breakdown across all five boroughs"),
+]:
+    with col:
+        st.markdown(
+            f"""
+            <div style="background:#ffffff;border-radius:14px;
+                        padding:1.6rem 1.4rem;text-align:center;
+                        box-shadow:0 2px 12px rgba(0,0,0,0.25);">
+                <div style="font-family:'Lora',serif;font-size:2.8rem;
+                            color:#b45309;line-height:1;margin-bottom:0.4rem;">{num}</div>
+                <div style="font-weight:700;color:#b45309;font-size:0.95rem;
+                            margin-bottom:0.4rem;">{label}</div>
+                <div style="color:#9b9488;font-size:0.8rem;line-height:1.5;">{sub}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+st.markdown("<br>", unsafe_allow_html=True)
+
+# ── What this app explores ────────────────────────────────────────────────────
+st.markdown(
+    "<h3 style='font-family:Lora,serif;font-weight:400;"
+    "color:#b45309;margin-bottom:1rem;'>What This App Explores</h3>",
+    unsafe_allow_html=True,
 )
 
-st.header("Why This Matters")
-st.write(
+topics = [
+    ("👤", "Who gets hurt",
+     "Injury and fatality outcomes across pedestrians, cyclists, drivers, and occupants."),
+    ("🕐", "When crashes happen",
+     "Hour-by-day heatmaps revealing commuter peaks, late-night risk, and weekly rhythms."),
+    ("🗺️", "Where risk concentrates",
+     "Borough-level crash counts exposing geographic inequality in traffic safety."),
+    ("⚠️", "Why crashes occur",
+     "Top contributing factors recorded by officers at the scene."),
+    ("📉", "Long-term fatality trends",
+     "Monthly tracking of pedestrian, cyclist, and motorist fatalities for Vision Zero."),
+    ("🛡️", "Safety equipment impact",
+     "How seatbelts and airbags affect injury outcomes for drivers and occupants."),
+]
+
+row1 = st.columns(3)
+row2 = st.columns(3)
+for col, (icon, title, desc) in zip(row1 + row2, topics):
+    with col:
+        st.markdown(
+            f"""
+            <div style="background:#ffffff;border-radius:12px;
+                        padding:1.2rem 1.2rem;margin-bottom:0.75rem;
+                        box-shadow:0 2px 10px rgba(0,0,0,0.2);">
+                <div style="font-size:1.4rem;margin-bottom:0.5rem;">{icon}</div>
+                <div style="font-weight:600;color:#b45309;font-size:0.93rem;
+                            margin-bottom:0.3rem;">{title}</div>
+                <div style="color:#9b9488;font-size:0.83rem;line-height:1.55;">{desc}</div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+st.divider()
+
+# ── Data pipeline note ────────────────────────────────────────────────────────
+st.markdown(
     """
-    Traffic collisions are an important public safety issue. By analyzing open data, we can better
-    understand when and where crashes occur and use visualization to make urban safety data more accessible.
-    """
+    <div style="background:#ffffff;border-radius:12px;
+                padding:1.2rem 1.4rem;display:flex;gap:1rem;align-items:flex-start;
+                box-shadow:0 2px 10px rgba(0,0,0,0.2);">
+        <div style="font-size:1.3rem;margin-top:0.1rem;">🔄</div>
+        <div>
+            <div style="font-weight:700;color:#b45309;margin-bottom:0.2rem;">Live Data Pipeline</div>
+            <div style="color:#9b9488;font-size:0.9rem;line-height:1.6;">
+                Data is pulled directly from the NYC Open Data API, stored in Google BigQuery,
+                and cached for one hour. Each page queries BigQuery in real time — no static snapshots.
+            </div>
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
 )
 
-st.header("Data Sources")
-st.write(
-    """
-    We use two NYC Open Data datasets: a person-level motor vehicle collisions dataset and a crash-level
-    motor vehicle collisions dataset. We also merge the datasets to explore broader patterns.
-    """
-)
-
-st.header("Method")
-st.write(
-    """
-    Our project uses live API data collection, basic data cleaning, dataset merging, and interactive
-    visualization in Streamlit. We focus on exploratory analysis to identify patterns by weekday, date,
-    and borough.
-    """
-)
-
-st.header("Updated Proposal / New Insights")
-st.write(
-    """
-    After building the current version of the app, we found that the visualizations already help present
-    the data clearly. We also realized that the project could be improved by using the data to explore
-    more complex and more meaningful real-world questions in the future.
-    """
-)
-
-st.markdown("---")
-st.subheader("Navigation")
-st.write("Use the sidebar to navigate:")
-st.write("- **Page 2**: Person-level dataset and weekday crash visualization")
-st.write("- **Page 3**: Merged dataset, daily crash trends, and borough analysis")
+st.markdown("<br>", unsafe_allow_html=True)
+st.caption("Source: NYC Open Data — Motor Vehicle Collisions (Person & Crash) · Updated hourly via BigQuery")
