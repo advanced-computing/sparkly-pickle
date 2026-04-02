@@ -58,8 +58,8 @@ st.markdown(
 )
 st.write(
     """
-    This page merges two live 2026 NYC collision datasets to support broader exploratory analysis.
-    By combining person-level and crash-level data, we can examine trends across time and location.
+    Combining crash-level and person-level BigQuery data to examine
+    temporal trends, geographic patterns, and contributing factors.
     """
 )
 
