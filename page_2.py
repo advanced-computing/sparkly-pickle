@@ -1,4 +1,5 @@
 import time
+from concurrent.futures import ThreadPoolExecutor
 
 import altair as alt
 import pandas as pd
@@ -8,8 +9,54 @@ from google.oauth2 import service_account
 
 start_time = time.time()
 
-st.title("Motor Vehicle Collisions - Person (BigQuery)")
+PROJECT_ID = "sipa-adv-c-sparkly-pickle"
 
+
+# ── Altair theme ──────────────────────────────────────────────────────────────
+@alt.theme.register("app_dark", enable=True)
+def app_dark():
+    return {
+        "config": {
+            "background": "#1a1c27",
+            "view": {"stroke": "transparent"},
+            "axis": {
+                "gridColor": "#2a2a3a",
+                "domainColor": "#2a2a3a",
+                "tickColor": "#2a2a3a",
+                "labelColor": "#6a6258",
+                "titleColor": "#9b9488",
+                "labelFont": "Inter, sans-serif",
+                "titleFont": "Inter, sans-serif",
+                "labelFontSize": 11,
+                "titleFontSize": 12,
+            },
+            "legend": {
+                "labelColor": "#9b9488",
+                "titleColor": "#c9c4bc",
+                "labelFont": "Inter, sans-serif",
+                "titleFont": "Inter, sans-serif",
+                "labelFontSize": 11,
+            },
+            "title": {
+                "color": "#e8e0d4",
+                "font": "Inter, sans-serif",
+                "fontSize": 14,
+                "fontWeight": 500,
+            },
+        }
+    }
+
+
+# ── Page header ───────────────────────────────────────────────────────────────
+st.markdown(
+    '<span class="page-label">Page 2 · Person-Level Dataset</span>',
+    unsafe_allow_html=True,
+)
+st.markdown(
+    "<h1 style='font-family:Lora,serif;font-weight:500;font-size:2.2rem;"
+    "color:#b45309;margin-bottom:0.3rem;'>Motor Vehicle Collisions – Person (BigQuery)</h1>",
+    unsafe_allow_html=True,
+)
 st.write(
     """
     This page uses the person-level motor vehicle collisions dataset stored in BigQuery.
@@ -17,9 +64,9 @@ st.write(
     """
 )
 
-PROJECT_ID = "sipa-adv-c-sparkly-pickle"
 
-
+# ── BigQuery client ───────────────────────────────────────────────────────────
+@st.cache_resource
 def get_bigquery_client():
     credentials = service_account.Credentials.from_service_account_info(
         st.secrets["gcp_service_account"]
@@ -27,9 +74,9 @@ def get_bigquery_client():
     return bigquery.Client(credentials=credentials, project=PROJECT_ID)
 
 
+# ── Individual query functions (each cached independently) ────────────────────
 @st.cache_data(ttl=3600)
 def load_kpi_metrics():
-    client = get_bigquery_client()
     query = """
     SELECT
         COUNT(DISTINCT collision_id)                                      AS total_crashes,
@@ -42,12 +89,16 @@ def load_kpi_metrics():
     FROM `sipa-adv-c-sparkly-pickle.nyc_data.motor_vehicle_collisions_person`
     WHERE crash_date IS NOT NULL
     """
-    return client.query(query).to_dataframe(create_bqstorage_client=False).iloc[0]
+    return (
+        get_bigquery_client()
+        .query(query)
+        .to_dataframe(create_bqstorage_client=False)
+        .iloc[0]
+    )
 
 
 @st.cache_data(ttl=3600)
 def load_weekday_person_type():
-    client = get_bigquery_client()
     query = """
     SELECT
         FORMAT_DATE('%A', DATE(crash_date)) AS weekday,
@@ -64,8 +115,8 @@ def load_weekday_person_type():
       AND person_type IS NOT NULL
     GROUP BY weekday, person_type
     """
-    df = client.query(query).to_dataframe(create_bqstorage_client=False)
-    weekday_order = [
+    df = get_bigquery_client().query(query).to_dataframe(create_bqstorage_client=False)
+    order = [
         "Monday",
         "Tuesday",
         "Wednesday",
@@ -74,15 +125,12 @@ def load_weekday_person_type():
         "Saturday",
         "Sunday",
     ]
-    df["weekday"] = pd.Categorical(
-        df["weekday"], categories=weekday_order, ordered=True
-    )
+    df["weekday"] = pd.Categorical(df["weekday"], categories=order, ordered=True)
     return df.sort_values("weekday")
 
 
 @st.cache_data(ttl=3600)
 def load_hour_weekday_heatmap():
-    client = get_bigquery_client()
     query = """
     SELECT
         FORMAT_DATE('%A', DATE(crash_date)) AS weekday,
@@ -92,8 +140,8 @@ def load_hour_weekday_heatmap():
     WHERE crash_date IS NOT NULL
     GROUP BY weekday, hour
     """
-    df = client.query(query).to_dataframe(create_bqstorage_client=False)
-    weekday_order = [
+    df = get_bigquery_client().query(query).to_dataframe(create_bqstorage_client=False)
+    order = [
         "Monday",
         "Tuesday",
         "Wednesday",
@@ -102,15 +150,12 @@ def load_hour_weekday_heatmap():
         "Saturday",
         "Sunday",
     ]
-    df["weekday"] = pd.Categorical(
-        df["weekday"], categories=weekday_order, ordered=True
-    )
+    df["weekday"] = pd.Categorical(df["weekday"], categories=order, ordered=True)
     return df
 
 
 @st.cache_data(ttl=3600)
 def load_safety_equipment():
-    client = get_bigquery_client()
     query = """
     SELECT
         CASE
@@ -140,21 +185,33 @@ def load_safety_equipment():
       AND person_injury IS NOT NULL
     GROUP BY equipment, outcome
     """
-    return client.query(query).to_dataframe(create_bqstorage_client=False)
+    return (
+        get_bigquery_client().query(query).to_dataframe(create_bqstorage_client=False)
+    )
 
 
+# ── Parallel loading ──────────────────────────────────────────────────────────
 with st.spinner("Loading data from BigQuery..."):
-    kpi = load_kpi_metrics()
-    weekday_df = load_weekday_person_type()
-    heatmap_df = load_hour_weekday_heatmap()
-    safety_df = load_safety_equipment()
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        f_kpi = pool.submit(load_kpi_metrics)
+        f_weekday = pool.submit(load_weekday_person_type)
+        f_heatmap = pool.submit(load_hour_weekday_heatmap)
+        f_safety = pool.submit(load_safety_equipment)
+
+    kpi = f_kpi.result()
+    weekday_df = f_weekday.result()
+    heatmap_df = f_heatmap.result()
+    safety_df = f_safety.result()
 
 if weekday_df.empty:
     st.warning("No data available.")
     st.stop()
 
-st.markdown("### At a glance")
-
+# ── KPI metrics ───────────────────────────────────────────────────────────────
+st.markdown(
+    "<h3 style='font-family:Lora,serif;font-weight:500;color:#b45309;'>At a glance</h3>",
+    unsafe_allow_html=True,
+)
 col1, col2, col3, col4 = st.columns(4)
 col1.metric("Total crashes", f"{int(kpi['total_crashes']):,}")
 col2.metric("People injured", f"{int(kpi['total_injured']):,}")
@@ -162,7 +219,12 @@ col3.metric("Fatalities", f"{int(kpi['total_killed']):,}")
 col4.metric("Fatality rate", f"{kpi['fatality_rate']:.2f}%")
 
 st.markdown("---")
-st.markdown("### Who gets hurt, and when?")
+
+# ── Chart 1: Stacked bar ──────────────────────────────────────────────────────
+st.markdown(
+    "<h3 style='font-family:Lora,serif;font-weight:500;color:#b45309;'>Who gets hurt, and when?</h3>",
+    unsafe_allow_html=True,
+)
 st.write(
     """
     Each bar shows the total number of people involved in crashes on that day,
@@ -183,7 +245,7 @@ weekday_order = [
 
 type_color_scale = alt.Scale(
     domain=["Driver", "Occupant", "Pedestrian", "Cyclist", "Other"],
-    range=["#185FA5", "#85B7EB", "#D85A30", "#1D9E75", "#888780"],
+    range=["#185FA5", "#85B7EB", "#b45309", "#1D9E75", "#888780"],
 )
 
 selection = alt.selection_point(fields=["person_type"], bind="legend")
@@ -217,16 +279,25 @@ stacked_bar = (
 
 st.altair_chart(stacked_bar, use_container_width=True)
 
-st.write(
+st.markdown(
     """
-    Fridays consistently show the highest overall count, driven mainly by driver and occupant
-    involvement. Pedestrian risk remains relatively stable across the week but spikes slightly
-    on weekends, likely reflecting night-time activity patterns.
-    """
+    <div class="insight-box">
+        <strong style="color:#b45309;">Key Insight</strong><br>
+        Fridays consistently show the highest overall count, driven mainly by driver and occupant
+        involvement. Pedestrian risk remains relatively stable across the week but spikes slightly
+        on weekends, likely reflecting night-time activity patterns.
+    </div>
+    """,
+    unsafe_allow_html=True,
 )
 
 st.markdown("---")
-st.markdown("### When do crashes happen? Hour x day heatmap")
+
+# ── Chart 2: Heatmap ──────────────────────────────────────────────────────────
+st.markdown(
+    "<h3 style='font-family:Lora,serif;font-weight:500;color:#b45309;'>When do crashes happen? Hour × day heatmap</h3>",
+    unsafe_allow_html=True,
+)
 st.write(
     """
     Each cell encodes crash count for that hour-day combination.
@@ -270,8 +341,6 @@ hour_label_order = [
     "11p",
 ]
 
-brush = alt.selection_interval(encodings=["x"])
-
 heatmap = (
     alt.Chart(heatmap_df)
     .mark_rect()
@@ -285,7 +354,7 @@ heatmap = (
         y=alt.Y("weekday:O", sort=weekday_order, title=None),
         color=alt.Color(
             "crashes:Q",
-            scale=alt.Scale(scheme="blues"),
+            scale=alt.Scale(scheme="oranges"),
             legend=alt.Legend(title="Crashes"),
         ),
         tooltip=[
@@ -294,22 +363,31 @@ heatmap = (
             alt.Tooltip("crashes:Q", title="Crashes", format=","),
         ],
     )
-    .add_params(brush)
+    .add_params(alt.selection_interval(encodings=["x"]))
     .properties(height=220)
 )
 
 st.altair_chart(heatmap, use_container_width=True)
 
-st.write(
+st.markdown(
     """
-    The classic double-peak commuter pattern appears strongly on weekdays -
-    8-9am and 4-6pm. Weekend nights (Friday and Saturday after 10pm) show a
-    distinct elevated risk band absent on weekdays, consistent with recreational travel.
-    """
+    <div class="insight-box">
+        <strong style="color:#b45309;">Key Insight</strong><br>
+        The classic double-peak commuter pattern appears strongly on weekdays —
+        8–9 am and 4–6 pm. Weekend nights (Friday and Saturday after 10 pm) show a
+        distinct elevated risk band absent on weekdays, consistent with recreational travel.
+    </div>
+    """,
+    unsafe_allow_html=True,
 )
 
 st.markdown("---")
-st.markdown("### Does safety equipment make a difference?")
+
+# ── Chart 3: Safety equipment ─────────────────────────────────────────────────
+st.markdown(
+    "<h3 style='font-family:Lora,serif;font-weight:500;color:#b45309;'>Does safety equipment make a difference?</h3>",
+    unsafe_allow_html=True,
+)
 st.write(
     """
     Among drivers and occupants, this chart compares injury outcomes across
@@ -357,16 +435,22 @@ safety_chart = (
 
 st.altair_chart(safety_chart, use_container_width=True)
 
-st.write(
+st.markdown(
     """
-    People with no safety equipment show a notably higher proportion of serious injuries
-    and fatalities compared to those wearing seatbelts. The 'Unknown / Not recorded'
-    category is large - a known limitation of police-reported data - so interpret
-    absolute proportions with caution.
-    """
+    <div class="insight-box">
+        <strong style="color:#b45309;">Key Insight</strong><br>
+        People with no safety equipment show a notably higher proportion of serious injuries
+        and fatalities compared to those wearing seatbelts. The 'Unknown / Not recorded'
+        category is large — a known limitation of police-reported data — so interpret
+        absolute proportions with caution.
+    </div>
+    """,
+    unsafe_allow_html=True,
 )
 
 st.markdown("---")
+
+# ── Download ──────────────────────────────────────────────────────────────────
 with st.expander("Download underlying data"):
     st.download_button(
         label="Download weekday x person type (CSV)",
