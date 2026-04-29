@@ -367,12 +367,12 @@ with st.sidebar:
     )
 
 # ── Pages ─────────────────────────────────────────────────────────────────────
-home_page    = st.Page("main_page.py",     title="Home",                icon="🏙️")
-proposal     = st.Page("proposal_page.py", title="Research Proposal",   icon="📋")
-overview     = st.Page("page_overview.py", title="1. The Big Picture",  icon="📊")
-who          = st.Page("page_who.py",      title="2. Who Bears Risk",   icon="👥")
-where_when   = st.Page("page_where.py",    title="3. Where & When",     icon="🗺️")
-policy       = st.Page("page_policy.py",   title="4. Policy Levers",    icon="🎯")
+home_page = st.Page("main_page.py", title="Home", icon="🏙️")
+proposal = st.Page("proposal_page.py", title="Research Proposal", icon="📋")
+overview = st.Page("page_overview.py", title="1. The Big Picture", icon="📊")
+who = st.Page("page_who.py", title="2. Who Bears Risk", icon="👥")
+where_when = st.Page("page_where.py", title="3. Where & When", icon="🗺️")
+policy = st.Page("page_policy.py", title="4. Policy Levers", icon="🎯")
 
 pg = st.navigation([home_page, proposal, overview, who, where_when, policy])
 pg.run()

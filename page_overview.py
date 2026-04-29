@@ -5,6 +5,7 @@ Establishes the citywide baseline: total crashes, fatalities, and the high-level
 patterns that look uniform on the surface. This page is intentionally broad —
 it sets up the puzzle that pages 2–4 will unpack.
 """
+
 import time
 from concurrent.futures import ThreadPoolExecutor
 
@@ -50,9 +51,7 @@ render_context_bar("Citywide totals & trends", filters)
 
 # ── Build SQL fragments from filters ─────────────────────────────────────────
 borough_filter_sql = (
-    "AND UPPER(borough) IN UNNEST(@boroughs)"
-    if len(filters["boroughs"]) < 5
-    else ""
+    "AND UPPER(borough) IN UNNEST(@boroughs)" if len(filters["boroughs"]) < 5 else ""
 )
 
 
@@ -76,12 +75,19 @@ def load_kpis(boroughs_tuple, date_start, date_end, time_period):
     """
     job_config = bq.QueryJobConfig(
         query_parameters=[
-            bq.ArrayQueryParameter("boroughs", "STRING", [b.upper() for b in boroughs_tuple]),
+            bq.ArrayQueryParameter(
+                "boroughs", "STRING", [b.upper() for b in boroughs_tuple]
+            ),
             bq.ScalarQueryParameter("date_start", "DATE", date_start),
-            bq.ScalarQueryParameter("date_end",   "DATE", date_end),
+            bq.ScalarQueryParameter("date_end", "DATE", date_end),
         ]
     )
-    return get_bigquery_client().query(query, job_config=job_config).to_dataframe(create_bqstorage_client=False).iloc[0]
+    return (
+        get_bigquery_client()
+        .query(query, job_config=job_config)
+        .to_dataframe(create_bqstorage_client=False)
+        .iloc[0]
+    )
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
@@ -102,12 +108,18 @@ def load_daily_trend(boroughs_tuple, date_start, date_end, time_period):
     """
     job_config = bq.QueryJobConfig(
         query_parameters=[
-            bq.ArrayQueryParameter("boroughs", "STRING", [b.upper() for b in boroughs_tuple]),
+            bq.ArrayQueryParameter(
+                "boroughs", "STRING", [b.upper() for b in boroughs_tuple]
+            ),
             bq.ScalarQueryParameter("date_start", "DATE", date_start),
-            bq.ScalarQueryParameter("date_end",   "DATE", date_end),
+            bq.ScalarQueryParameter("date_end", "DATE", date_end),
         ]
     )
-    return get_bigquery_client().query(query, job_config=job_config).to_dataframe(create_bqstorage_client=False)
+    return (
+        get_bigquery_client()
+        .query(query, job_config=job_config)
+        .to_dataframe(create_bqstorage_client=False)
+    )
 
 
 @st.cache_data(ttl=3600, show_spinner=False)
@@ -129,10 +141,14 @@ def load_borough_split(date_start, date_end, time_period):
     job_config = bq.QueryJobConfig(
         query_parameters=[
             bq.ScalarQueryParameter("date_start", "DATE", date_start),
-            bq.ScalarQueryParameter("date_end",   "DATE", date_end),
+            bq.ScalarQueryParameter("date_end", "DATE", date_end),
         ]
     )
-    return get_bigquery_client().query(query, job_config=job_config).to_dataframe(create_bqstorage_client=False)
+    return (
+        get_bigquery_client()
+        .query(query, job_config=job_config)
+        .to_dataframe(create_bqstorage_client=False)
+    )
 
 
 # ── Parallel loading ─────────────────────────────────────────────────────────
@@ -140,9 +156,26 @@ boroughs_tuple = tuple(sorted(filters["boroughs"]))
 
 with st.spinner("Loading data from BigQuery..."):
     with ThreadPoolExecutor(max_workers=3) as pool:
-        f_kpi = pool.submit(load_kpis, boroughs_tuple, filters["date_start"], filters["date_end"], filters["time_period"])
-        f_daily = pool.submit(load_daily_trend, boroughs_tuple, filters["date_start"], filters["date_end"], filters["time_period"])
-        f_borough = pool.submit(load_borough_split, filters["date_start"], filters["date_end"], filters["time_period"])
+        f_kpi = pool.submit(
+            load_kpis,
+            boroughs_tuple,
+            filters["date_start"],
+            filters["date_end"],
+            filters["time_period"],
+        )
+        f_daily = pool.submit(
+            load_daily_trend,
+            boroughs_tuple,
+            filters["date_start"],
+            filters["date_end"],
+            filters["time_period"],
+        )
+        f_borough = pool.submit(
+            load_borough_split,
+            filters["date_start"],
+            filters["date_end"],
+            filters["time_period"],
+        )
 
     kpi = f_kpi.result()
     daily_df = f_daily.result()
@@ -360,4 +393,6 @@ with st.expander("Download underlying data"):
     )
 
 elapsed = time.time() - start_time
-st.caption(f"Loaded in {elapsed:.2f}s · Filters: {len(filters['boroughs'])} boroughs · {filters['time_period']}")
+st.caption(
+    f"Loaded in {elapsed:.2f}s · Filters: {len(filters['boroughs'])} boroughs · {filters['time_period']}"
+)
