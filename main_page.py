@@ -3,18 +3,18 @@ import streamlit as st
 # ── Hero ─────────────────────────────────────────────────────────────────────
 st.markdown(
     """
-    <div style="padding:3rem 0 2rem 0;">
-        <div style="font-size:0.75rem;text-transform:uppercase;letter-spacing:0.15em;
-                    color:#b45309;font-weight:600;margin-bottom:1rem;">
-            NYC Open Data · 2026 Live
+    <div style="padding:2rem 0 1.5rem 0;">
+        <div style="font-size:0.7rem;text-transform:uppercase;letter-spacing:0.15em;
+                    color:#4A7FB5;font-weight:700;margin-bottom:0.8rem;">
+            NYC Open Data · 2026 Live · Updated Hourly
         </div>
-        <h1 style="font-family:'Lora',serif;font-size:3.2rem;font-weight:400;
-                   color:#b45309;line-height:1.15;margin:0 0 1.2rem 0;">
-            Motor Vehicle<br>Collisions in New York City
+        <h1 style="font-family:'JetBrains Mono',monospace;font-size:2.6rem;font-weight:600;
+                   color:#0F172A;line-height:1.15;margin:0 0 1rem 0;letter-spacing:-0.02em;">
+            NYC Traffic Safety<br>Intelligence Dashboard
         </h1>
-        <p style="color:#9b9488;font-size:1.1rem;max-width:560px;margin:0;line-height:1.8;">
-            An interactive look at when, where, and how crashes happen across the five boroughs —
-            powered by live BigQuery data updated hourly.
+        <p style="color:#475569;font-size:1.05rem;max-width:680px;margin:0;line-height:1.75;">
+            A diagnostic tool for understanding where NYC's traffic safety problem actually lives —
+            and why a one-size-fits-all citywide policy is the wrong answer.
         </p>
     </div>
     """,
@@ -23,24 +23,26 @@ st.markdown(
 
 st.divider()
 
-# ── Stat cards — white on dark ────────────────────────────────────────────────
-c1, c2, c3 = st.columns(3)
+# ── Stat cards ───────────────────────────────────────────────────────────────
+c1, c2, c3, c4 = st.columns(4)
 for col, num, label, sub in [
-    (c1, "2026", "Data Year", "Live-refreshed every hour from NYC Open Data"),
-    (c2, "2", "Datasets Merged", "Person-level and crash-level records combined"),
-    (c3, "5", "NYC Boroughs", "Geographic breakdown across all five boroughs"),
+    (c1, "2026", "Data Year", "Live-refreshed every hour"),
+    (c2, "2", "Datasets Merged", "Person + Crash records"),
+    (c3, "5", "NYC Boroughs", "Citywide breakdown"),
+    (c4, "4", "Analysis Modules", "Big picture → policy"),
 ]:
     with col:
         st.markdown(
             f"""
-            <div style="background:#ffffff;border-radius:14px;
-                        padding:1.6rem 1.4rem;text-align:center;
-                        box-shadow:0 2px 12px rgba(0,0,0,0.25);">
-                <div style="font-family:'Lora',serif;font-size:2.8rem;
-                            color:#b45309;line-height:1;margin-bottom:0.4rem;">{num}</div>
-                <div style="font-weight:700;color:#b45309;font-size:0.95rem;
-                            margin-bottom:0.4rem;">{label}</div>
-                <div style="color:#9b9488;font-size:0.8rem;line-height:1.5;">{sub}</div>
+            <div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:12px;
+                        padding:1.4rem 1.2rem;text-align:center;
+                        box-shadow:0 1px 3px rgba(15,23,42,0.04);">
+                <div style="font-family:'JetBrains Mono',monospace;font-size:2rem;
+                            color:#6F9FCF;line-height:1;margin-bottom:0.4rem;font-weight:700;">{num}</div>
+                <div style="font-weight:700;color:#0F172A;font-size:0.78rem;
+                            text-transform:uppercase;letter-spacing:0.1em;
+                            margin-bottom:0.3rem;">{label}</div>
+                <div style="color:#64748B;font-size:0.78rem;line-height:1.5;">{sub}</div>
             </div>
             """,
             unsafe_allow_html=True,
@@ -48,78 +50,111 @@ for col, num, label, sub in [
 
 st.markdown("<br>", unsafe_allow_html=True)
 
-# ── What this app explores ────────────────────────────────────────────────────
+# ── Central argument ────────────────────────────────────────────────────────
 st.markdown(
-    "<h3 style='font-family:Lora,serif;font-weight:400;"
-    "color:#b45309;margin-bottom:1rem;'>What This App Explores</h3>",
+    "<h3 style='font-family:JetBrains Mono,monospace;font-weight:600;"
+    "color:#0F172A;margin-bottom:0.8rem;font-size:1.2rem;'>The Central Argument</h3>",
     unsafe_allow_html=True,
 )
 
-topics = [
+st.markdown(
+    """
+    <div class="card">
+        <div style='color:#334155;font-size:0.95rem;line-height:1.8;'>
+            NYC's traffic safety problem is not uniform. Crash <strong>causes</strong>,
+            <strong>severity</strong>, and <strong>victim profiles</strong> look very different
+            depending on which borough you're in and what time of day it is. A policy that treats
+            all boroughs and all hours the same will systematically under-serve the places and
+            moments where the risk is actually highest.<br><br>
+            This dashboard walks you through the evidence in four steps —
+            from the citywide picture, to who bears the risk, to where and when that risk
+            concentrates, and finally to the specific policy levers the data supports.
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+st.markdown("<br>", unsafe_allow_html=True)
+
+# ── Module cards ─────────────────────────────────────────────────────────────
+st.markdown(
+    "<h3 style='font-family:JetBrains Mono,monospace;font-weight:600;"
+    "color:#0F172A;margin-bottom:0.8rem;font-size:1.2rem;'>How To Read This Dashboard</h3>",
+    unsafe_allow_html=True,
+)
+
+modules = [
     (
-        "👤",
-        "Who gets hurt",
-        "Injury and fatality outcomes across pedestrians, cyclists, drivers, and occupants.",
+        "1.",
+        "📊",
+        "The Big Picture",
+        "Establish the baseline: total crashes, fatalities, and the citywide patterns "
+        "that look uniform on the surface.",
     ),
     (
-        "🕐",
-        "When crashes happen",
-        "Hour-by-day heatmaps revealing commuter peaks, late-night risk, and weekly rhythms.",
+        "2.",
+        "👥",
+        "Who Bears the Risk",
+        "Drill into who is actually getting hurt. Pedestrians and cyclists are a small "
+        "share of crash involvements but a large share of deaths.",
     ),
     (
+        "3.",
         "🗺️",
-        "Where risk concentrates",
-        "Borough-level crash counts exposing geographic inequality in traffic safety.",
+        "Where & When",
+        "Show how crash causes vary across boroughs and time of day. The citywide "
+        "averages hide the real problems.",
     ),
     (
-        "⚠️",
-        "Why crashes occur",
-        "Top contributing factors recorded by officers at the scene.",
-    ),
-    (
-        "📉",
-        "Long-term fatality trends",
-        "Monthly tracking of pedestrian, cyclist, and motorist fatalities for Vision Zero.",
-    ),
-    (
-        "🛡️",
-        "Safety equipment impact",
-        "How seatbelts and airbags affect injury outcomes for drivers and occupants.",
+        "4.",
+        "🎯",
+        "Policy Levers",
+        "Synthesize the findings into specific, evidence-backed recommendations for "
+        "borough-level and time-specific interventions.",
     ),
 ]
 
-row1 = st.columns(3)
-row2 = st.columns(3)
-for col, (icon, title, desc) in zip(row1 + row2, topics):
+cols = st.columns(4)
+for col, (num, icon, title, desc) in zip(cols, modules):
     with col:
         st.markdown(
             f"""
-            <div style="background:#ffffff;border-radius:12px;
-                        padding:1.2rem 1.2rem;margin-bottom:0.75rem;
-                        box-shadow:0 2px 10px rgba(0,0,0,0.2);">
-                <div style="font-size:1.4rem;margin-bottom:0.5rem;">{icon}</div>
-                <div style="font-weight:600;color:#b45309;font-size:0.93rem;
-                            margin-bottom:0.3rem;">{title}</div>
-                <div style="color:#9b9488;font-size:0.83rem;line-height:1.55;">{desc}</div>
+            <div style="background:#FFFFFF;border:1px solid #E2E8F0;border-radius:12px;
+                        padding:1.3rem 1.2rem;height:100%;
+                        box-shadow:0 1px 3px rgba(15,23,42,0.04);">
+                <div style="display:flex;align-items:center;gap:0.6rem;margin-bottom:0.7rem;">
+                    <div style="font-family:JetBrains Mono,monospace;font-size:0.9rem;
+                                color:#6F9FCF;font-weight:700;">{num}</div>
+                    <div style="font-size:1.4rem;">{icon}</div>
+                </div>
+                <div style="font-weight:700;color:#0F172A;font-size:0.95rem;
+                            margin-bottom:0.45rem;font-family:JetBrains Mono,monospace;">{title}</div>
+                <div style="color:#64748B;font-size:0.83rem;line-height:1.6;">{desc}</div>
             </div>
             """,
             unsafe_allow_html=True,
         )
 
-st.divider()
+st.markdown("<br>", unsafe_allow_html=True)
 
-# ── Data pipeline note ────────────────────────────────────────────────────────
+# ── Filters note ─────────────────────────────────────────────────────────────
 st.markdown(
     """
-    <div style="background:#ffffff;border-radius:12px;
-                padding:1.2rem 1.4rem;display:flex;gap:1rem;align-items:flex-start;
-                box-shadow:0 2px 10px rgba(0,0,0,0.2);">
-        <div style="font-size:1.3rem;margin-top:0.1rem;">🔄</div>
-        <div>
-            <div style="font-weight:700;color:#b45309;margin-bottom:0.2rem;">Live Data Pipeline</div>
-            <div style="color:#9b9488;font-size:0.9rem;line-height:1.6;">
-                Data is pulled directly from the NYC Open Data API, stored in Google BigQuery,
-                and cached for one hour. Each page queries BigQuery in real time — no static snapshots.
+    <div class="card">
+        <div style="display:flex;gap:1rem;align-items:flex-start;">
+            <div style="font-size:1.4rem;">🎛️</div>
+            <div>
+                <div style="font-weight:700;color:#0F172A;margin-bottom:0.3rem;
+                            font-family:JetBrains Mono,monospace;font-size:0.95rem;">
+                    Use the sidebar filters
+                </div>
+                <div style="color:#64748B;font-size:0.88rem;line-height:1.65;">
+                    Every analytical page (modules 1–4) responds to the borough, person-type,
+                    time-period, and date filters in the sidebar. Adjust them to compare
+                    boroughs side-by-side, isolate late-night patterns, or zoom in on a
+                    specific date window.
+                </div>
             </div>
         </div>
     </div>
@@ -128,6 +163,31 @@ st.markdown(
 )
 
 st.markdown("<br>", unsafe_allow_html=True)
+
+# ── Data pipeline note ────────────────────────────────────────────────────────
+st.markdown(
+    """
+    <div class="card">
+        <div style="display:flex;gap:1rem;align-items:flex-start;">
+            <div style="font-size:1.4rem;">🔄</div>
+            <div>
+                <div style="font-weight:700;color:#0F172A;margin-bottom:0.3rem;
+                            font-family:JetBrains Mono,monospace;font-size:0.95rem;">
+                    Live Data Pipeline
+                </div>
+                <div style="color:#64748B;font-size:0.88rem;line-height:1.65;">
+                    Data is pulled directly from the NYC Open Data API, stored in Google BigQuery,
+                    and cached for one hour. Each page queries BigQuery in real time —
+                    no static snapshots.
+                </div>
+            </div>
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
 st.caption(
-    "Source: NYC Open Data — Motor Vehicle Collisions (Person & Crash) · Updated hourly via BigQuery"
+    "Source: NYC Open Data — Motor Vehicle Collisions (Person & Crash) · "
+    "Group sparkly-pickle · Yiran Ge · Yizi Qu"
 )
