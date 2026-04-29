@@ -30,6 +30,29 @@ def create_dataset_if_needed():
         print("Dataset created.")
 
 
+def merge_date_and_time(df):
+    """
+    NYC Open Data stores date and time in two separate fields:
+      - crash_date: '2026-01-15T00:00:00.000' (time part is always 00:00:00)
+      - crash_time: '14:30' (HH:MM string)
+    We combine them into a single DATETIME so hour-of-day analysis works.
+    Rows missing crash_time fall back to midnight.
+    """
+    # Normalize crash_date to date-only first
+    date_only = pd.to_datetime(df["crash_date"], errors="coerce").dt.date.astype(str)
+
+    # crash_time may be missing or malformed; fall back to '00:00'
+    time_str = df["crash_time"].fillna("00:00").astype(str).str.strip()
+    # Some rows may have 'HH:MM:SS' format — keep only HH:MM
+    time_str = time_str.str.slice(0, 5)
+    # Pad single-digit hours like '5:30' → '05:30'
+    time_str = time_str.where(time_str.str.match(r"^\d{2}:\d{2}$"), "00:00")
+
+    combined = pd.to_datetime(date_only + " " + time_str, errors="coerce")
+    df["crash_date"] = combined
+    return df
+
+
 def get_person_data():
     params = {
         "$where": "crash_date >= '2026-01-01T00:00:00'",
@@ -43,6 +66,7 @@ def get_person_data():
         "unique_id",
         "collision_id",
         "crash_date",
+        "crash_time",
         "person_id",
         "person_type",
         "person_injury",
@@ -66,7 +90,9 @@ def get_person_data():
             df[col] = None
 
     df = df[needed_cols]
-    df["crash_date"] = pd.to_datetime(df["crash_date"], errors="coerce")
+    df = merge_date_and_time(df)
+    # Drop crash_time column — it's now baked into crash_date
+    df = df.drop(columns=["crash_time"])
     return df
 
 
@@ -82,6 +108,7 @@ def get_crash_data():
     needed_cols = [
         "collision_id",
         "crash_date",
+        "crash_time",
         "borough",
         "zip_code",
         "latitude",
@@ -107,7 +134,9 @@ def get_crash_data():
             df[col] = None
 
     df = df[needed_cols]
-    df["crash_date"] = pd.to_datetime(df["crash_date"], errors="coerce")
+    df = merge_date_and_time(df)
+    # Drop crash_time column — it's now baked into crash_date
+    df = df.drop(columns=["crash_time"])
     return df
 
 
@@ -165,12 +194,17 @@ def main():
     print("Person data preview:")
     print(person_df.head())
     print(person_df.shape)
+    # Sanity check — should see varied hours, not all 00:00:00
+    print("Sample crash_date values (should have varied times):")
+    print(person_df["crash_date"].head(10).tolist())
     upload_to_bigquery(person_df, PERSON_TABLE_ID)
 
     crash_df = get_crash_data()
     print("Crash data preview:")
     print(crash_df.head())
     print(crash_df.shape)
+    print("Sample crash_date values (should have varied times):")
+    print(crash_df["crash_date"].head(10).tolist())
     upload_to_bigquery(crash_df, CRASH_TABLE_ID)
 
     create_aggregated_tables()
