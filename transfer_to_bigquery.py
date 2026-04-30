@@ -34,22 +34,33 @@ def merge_date_and_time(df):
     """
     NYC Open Data stores date and time in two separate fields:
       - crash_date: '2026-01-15T00:00:00.000' (time part is always 00:00:00)
-      - crash_time: '14:30' (HH:MM string)
+      - crash_time: '14:30' (HH:MM string, may be single-digit hour e.g. '7:30')
     We combine them into a single DATETIME so hour-of-day analysis works.
-    Rows missing crash_time fall back to midnight.
+    Rows missing or unparseable crash_time fall back to midnight.
+
+    FIX: The previous version used .where(str.match(r"^\d{2}:\d{2}$"), "00:00")
+    which silently zeroed out any single-digit hour (6:00–9:59), causing all
+    daytime data between 6am and 10pm to appear as midnight records.
+    We now use format="mixed" so pandas handles both H:MM and HH:MM correctly.
     """
-    # Normalize crash_date to date-only first
+    # Normalize crash_date to date-only string
     date_only = pd.to_datetime(df["crash_date"], errors="coerce").dt.date.astype(str)
 
     # crash_time may be missing or malformed; fall back to '00:00'
     time_str = df["crash_time"].fillna("00:00").astype(str).str.strip()
     # Some rows may have 'HH:MM:SS' format — keep only HH:MM
     time_str = time_str.str.slice(0, 5)
-    # Pad single-digit hours like '5:30' → '05:30'
-    time_str = time_str.where(time_str.str.match(r"^\d{2}:\d{2}$"), "00:00")
 
-    combined = pd.to_datetime(date_only + " " + time_str, errors="coerce")
-    df["crash_date"] = combined
+    # ✅ FIX: use format="mixed" to correctly parse both "7:30" and "14:30"
+    # The old .where(match(r"^\d{2}:\d{2}$"), "00:00") was zeroing out
+    # single-digit hours like "6:30", "7:00" ... "9:59" → all became midnight.
+    combined = pd.to_datetime(
+        date_only + " " + time_str, format="mixed", errors="coerce"
+    )
+
+    # Fallback: if parsing still fails, use date-only (midnight)
+    fallback = pd.to_datetime(date_only, errors="coerce")
+    df["crash_date"] = combined.fillna(fallback)
     return df
 
 
