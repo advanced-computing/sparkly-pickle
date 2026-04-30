@@ -1,3 +1,5 @@
+import datetime
+
 import pandas as pd
 from urllib.parse import urlencode
 from google.cloud import bigquery
@@ -32,35 +34,32 @@ def create_dataset_if_needed():
 
 def merge_date_and_time(df):
     """
-    NYC Open Data stores date and time in two separate fields:
-      - crash_date: '2026-01-15T00:00:00.000' (time part is always 00:00:00)
-      - crash_time: '14:30' (HH:MM string, may be single-digit hour e.g. '7:30')
-    We combine them into a single DATETIME so hour-of-day analysis works.
-    Rows missing or unparseable crash_time fall back to midnight.
+    NYC Open Data API returns two fields:
+      - crash_date: '2026-01-15T00:00:00.000' (date only, time always 00:00:00)
+      - crash_time: parsed by pd.read_json as a full datetime e.g. '2026-04-29 18:39:00'
+                    (the date part is today's date and should be ignored;
+                     only the time part HH:MM:SS is meaningful)
 
-    FIX: The previous version used .where(str.match(r"^\d{2}:\d{2}$"), "00:00")
-    which silently zeroed out any single-digit hour (6:00–9:59), causing all
-    daytime data between 6am and 10pm to appear as midnight records.
-    We now use format="mixed" so pandas handles both H:MM and HH:MM correctly.
+    We take the date from crash_date and the time from crash_time, then combine them.
+    Rows missing crash_time fall back to midnight.
+
+    NOTE: Do NOT use str.slice() on crash_time — pd.read_json parses it as a
+    datetime object, not a string. Slicing gives '2026-' instead of '18:39'.
     """
-    # Normalize crash_date to date-only string
-    date_only = pd.to_datetime(df["crash_date"], errors="coerce").dt.date.astype(str)
+    date_only = pd.to_datetime(df["crash_date"], errors="coerce").dt.date
+    crash_time_dt = pd.to_datetime(df["crash_time"], errors="coerce")
+    time_only = crash_time_dt.dt.time
 
-    # crash_time may be missing or malformed; fall back to '00:00'
-    time_str = df["crash_time"].fillna("00:00").astype(str).str.strip()
-    # Some rows may have 'HH:MM:SS' format — keep only HH:MM
-    time_str = time_str.str.slice(0, 5)
+    def combine(row):
+        if pd.isna(row["date_only"]):
+            return pd.NaT
+        t = row["time_only"]
+        if t is None or str(t) == "nan":
+            t = datetime.time(0, 0, 0)
+        return datetime.datetime.combine(row["date_only"], t)
 
-    # ✅ FIX: use format="mixed" to correctly parse both "7:30" and "14:30"
-    # The old .where(match(r"^\d{2}:\d{2}$"), "00:00") was zeroing out
-    # single-digit hours like "6:30", "7:00" ... "9:59" → all became midnight.
-    combined = pd.to_datetime(
-        date_only + " " + time_str, format="mixed", errors="coerce"
-    )
-
-    # Fallback: if parsing still fails, use date-only (midnight)
-    fallback = pd.to_datetime(date_only, errors="coerce")
-    df["crash_date"] = combined.fillna(fallback)
+    temp = pd.DataFrame({"date_only": date_only, "time_only": time_only})
+    df["crash_date"] = temp.apply(combine, axis=1)
     return df
 
 
@@ -102,7 +101,6 @@ def get_person_data():
 
     df = df[needed_cols]
     df = merge_date_and_time(df)
-    # Drop crash_time column — it's now baked into crash_date
     df = df.drop(columns=["crash_time"])
     return df
 
@@ -146,7 +144,6 @@ def get_crash_data():
 
     df = df[needed_cols]
     df = merge_date_and_time(df)
-    # Drop crash_time column — it's now baked into crash_date
     df = df.drop(columns=["crash_time"])
     return df
 
@@ -205,7 +202,6 @@ def main():
     print("Person data preview:")
     print(person_df.head())
     print(person_df.shape)
-    # Sanity check — should see varied hours, not all 00:00:00
     print("Sample crash_date values (should have varied times):")
     print(person_df["crash_date"].head(10).tolist())
     upload_to_bigquery(person_df, PERSON_TABLE_ID)
